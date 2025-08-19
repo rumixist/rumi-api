@@ -1,12 +1,22 @@
 import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcrypt';
-import crypto from 'crypto'; // Yeni UUID oluşturmak için
+import crypto from 'crypto';
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default async function handler(req, res) {
+  // CORS başlıklarını ekle
+  res.setHeader('Access-Control-Allow-Origin', 'http://127.0.0.1:5500');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Tarayıcının gönderdiği OPTIONS isteğine yanıt ver
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method === 'POST') {
     const { action, username, password } = req.body;
 
