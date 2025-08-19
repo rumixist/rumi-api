@@ -1,44 +1,88 @@
 import { createClient } from '@supabase/supabase-js';
+import bcrypt from 'bcrypt';
+import crypto from 'crypto'; // Yeni UUID oluşturmak için
 
-// Ortam değişkenlerini alıyoruz
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
-
-// Supabase istemcisini oluşturuyoruz
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default async function handler(req, res) {
   if (req.method === 'POST') {
-    const { action, email, password } = req.body;
+    const { action, username, password } = req.body;
 
     if (action === 'signup') {
-      const { user, error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
+      try {
+        // Kullanıcı adının zaten kullanılıp kullanılmadığını kontrol et
+        const { data: existingUser, error: findError } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('username', username);
 
-      if (error) {
-        return res.status(500).json({ error: error.message });
+        if (findError) {
+          return res.status(500).json({ error: findError.message });
+        }
+        if (existingUser && existingUser.length > 0) {
+          return res.status(409).json({ error: 'Kullanıcı adı zaten kullanımda.' });
+        }
+
+        // Şifreyi hashle
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Kendi benzersiz ID'mizi oluştur
+        const userUuid = crypto.randomUUID();
+
+        // Profili veritabanına ekle
+        const { data, error: insertError } = await supabase
+          .from('profiles')
+          .insert([
+            {
+              user_uuid: userUuid,
+              username: username,
+              password_hash: hashedPassword
+            }
+          ]);
+
+        if (insertError) {
+          return res.status(500).json({ error: insertError.message });
+        }
+
+        return res.status(200).json({ success: true, user: data[0] });
+
+      } catch (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Bir hata oluştu.' });
       }
-
-      return res.status(200).json({ success: true, user });
     }
 
     if (action === 'login') {
-      const { user, error } = await supabase.auth.signIn({
-        email,
-        password,
-      });
+      try {
+        // Kullanıcıyı veritabanında bul
+        const { data: user, error: findError } = await supabase
+          .from('profiles')
+          .select('password_hash')
+          .eq('username', username)
+          .single();
 
-      if (error) {
-        return res.status(500).json({ error: error.message });
+        if (findError || !user) {
+          return res.status(401).json({ error: 'Kullanıcı adı veya şifre yanlış.' });
+        }
+
+        // Girilen şifre ile hashlenmiş şifreyi karşılaştır
+        const passwordMatch = await bcrypt.compare(password, user.password_hash);
+
+        if (!passwordMatch) {
+          return res.status(401).json({ error: 'Kullanıcı adı veya şifre yanlış.' });
+        }
+
+        // Şifre doğruysa başarılı yanıt gönder
+        return res.status(200).json({ success: true, message: 'Giriş başarılı!' });
+
+      } catch (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Bir hata oluştu.' });
       }
-
-      return res.status(200).json({ success: true, user });
     }
   }
 
-  // POST dışındaki isteklere hata döner
   res.status(405).json({ message: 'Method Not Allowed' });
 }
-
