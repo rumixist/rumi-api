@@ -8,7 +8,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default async function handler(req, res) {
   // CORS başlıklarını ekle (tüm yanıtlara uygulanacak)
-  res.setHeader('Access-Control-Allow-Origin', 'http://127.0.0.1:5500');
+  res.setHeader('Access-Control-Allow-Origin', '127.0.0.1:5500');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -90,3 +90,4 @@ export default async function handler(req, res) {
   // çünkü zaten yukarıda eklendi.
   res.status(405).json({ message: 'Method Not Allowed' });
 }
+
