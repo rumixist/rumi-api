@@ -7,7 +7,7 @@ const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default async function handler(req, res) {
-  // CORS başlıklarını ekle
+  // CORS başlıklarını ekle (tüm yanıtlara uygulanacak)
   res.setHeader('Access-Control-Allow-Origin', 'http://127.0.0.1:5500');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -22,7 +22,6 @@ export default async function handler(req, res) {
 
     if (action === 'signup') {
       try {
-        // Kullanıcı adının zaten kullanılıp kullanılmadığını kontrol et
         const { data: existingUser, error: findError } = await supabase
           .from('profiles')
           .select('username')
@@ -35,13 +34,9 @@ export default async function handler(req, res) {
           return res.status(409).json({ error: 'Kullanıcı adı zaten kullanımda.' });
         }
 
-        // Şifreyi hashle
         const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Kendi benzersiz ID'mizi oluştur
         const userUuid = crypto.randomUUID();
 
-        // Profili veritabanına ekle
         const { data, error: insertError } = await supabase
           .from('profiles')
           .insert([
@@ -66,7 +61,6 @@ export default async function handler(req, res) {
 
     if (action === 'login') {
       try {
-        // Kullanıcıyı veritabanında bul
         const { data: user, error: findError } = await supabase
           .from('profiles')
           .select('password_hash')
@@ -77,14 +71,12 @@ export default async function handler(req, res) {
           return res.status(401).json({ error: 'Kullanıcı adı veya şifre yanlış.' });
         }
 
-        // Girilen şifre ile hashlenmiş şifreyi karşılaştır
         const passwordMatch = await bcrypt.compare(password, user.password_hash);
 
         if (!passwordMatch) {
           return res.status(401).json({ error: 'Kullanıcı adı veya şifre yanlış.' });
         }
 
-        // Şifre doğruysa başarılı yanıt gönder
         return res.status(200).json({ success: true, message: 'Giriş başarılı!' });
 
       } catch (err) {
@@ -94,5 +86,7 @@ export default async function handler(req, res) {
     }
   }
 
+  // Bu satırın da CORS başlıkları alması için `res` nesnesinin `setHeader` metodunu kullanmasına gerek kalmaz
+  // çünkü zaten yukarıda eklendi.
   res.status(405).json({ message: 'Method Not Allowed' });
 }
