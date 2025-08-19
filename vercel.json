@@ -1,7 +1,14 @@
 {
-  "functions": {
-    "api/index.js": {
-      "runtime": "vercel-node@18.x"
+  "builds": [
+    {
+      "src": "api/**/*.js", // api klasöründeki tüm .js dosyalarını hedefler
+      "use": "@vercel/node"
     }
-  }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)", // Gelen tüm /api/ isteklerini
+      "dest": "/api/index.js" // api/index.js dosyasına yönlendirir (isteğe bağlı ama yaygın bir kullanım)
+    }
+  ]
 }
