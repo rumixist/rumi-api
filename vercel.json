@@ -1,14 +1,14 @@
 {
   "builds": [
     {
-      "src": "api/**/*.js", // api klasöründeki tüm .js dosyalarını hedefler
+      "src": "api/**/*.js", 
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)", // Gelen tüm /api/ isteklerini
-      "dest": "/api/index.js" // api/index.js dosyasına yönlendirir (isteğe bağlı ama yaygın bir kullanım)
+      "src": "/api/(.*)",
+      "dest": "/api/index.js" 
     }
   ]
 }
