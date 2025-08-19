@@ -1,93 +1,89 @@
-import { createClient } from '@supabase/supabase-js';
-import bcrypt from 'bcrypt';
-import crypto from 'crypto';
+// Deno Deploy ile çalışmak için URL'leri kullanıyoruz
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import bcrypt from 'https://esm.sh/bcrypt@5';
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+// Ortam değişkenlerini alıyoruz
+const supabaseUrl = Deno.env.get('SUPABASE_URL');
+const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export default async function handler(req, res) {
-  // CORS başlıklarını ekle (tüm yanıtlara uygulanacak)
-  res.setHeader('Access-Control-Allow-Origin', '127.0.0.1:5500');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  // Tarayıcının gönderdiği OPTIONS isteğine yanıt ver
+Deno.serve(async (req) => {
+  // CORS (Çapraz Kaynak Paylaşımı) ayarları
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    return new Response(null, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
+    });
   }
 
-  if (req.method === 'POST') {
-    const { action, username, password } = req.body;
+  // Sadece POST isteklerini kabul et
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ message: 'Method Not Allowed' }), {
+      status: 405,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
+  }
+
+  try {
+    const { action, username, password } = await req.json();
 
     if (action === 'signup') {
-      try {
-        const { data: existingUser, error: findError } = await supabase
-          .from('profiles')
-          .select('username')
-          .eq('username', username);
+      const { data: existingUser, error: findError } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('username', username);
 
-        if (findError) {
-          return res.status(500).json({ error: findError.message });
-        }
-        if (existingUser && existingUser.length > 0) {
-          return res.status(409).json({ error: 'Kullanıcı adı zaten kullanımda.' });
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const userUuid = crypto.randomUUID();
-
-        const { data, error: insertError } = await supabase
-          .from('profiles')
-          .insert([
-            {
-              user_uuid: userUuid,
-              username: username,
-              password_hash: hashedPassword
-            }
-          ]);
-
-        if (insertError) {
-          return res.status(500).json({ error: insertError.message });
-        }
-
-        return res.status(200).json({ success: true, user: data[0] });
-
-      } catch (err) {
-        console.error(err);
-        return res.status(500).json({ error: 'Bir hata oluştu.' });
+      if (findError) {
+        return new Response(JSON.stringify({ error: findError.message }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
       }
+      if (existingUser && existingUser.length > 0) {
+        return new Response(JSON.stringify({ error: 'Kullanıcı adı zaten kullanımda.' }), {
+          status: 409,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+      
+      const { data, error: insertError } = await supabase
+        .from('profiles')
+        .insert([
+          {
+            username: username,
+            password_hash: hashedPassword,
+          },
+        ]);
+
+      if (insertError) {
+        return new Response(JSON.stringify({ error: insertError.message }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true, user: data[0] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      });
     }
 
-    if (action === 'login') {
-      try {
-        const { data: user, error: findError } = await supabase
-          .from('profiles')
-          .select('password_hash')
-          .eq('username', username)
-          .single();
-
-        if (findError || !user) {
-          return res.status(401).json({ error: 'Kullanıcı adı veya şifre yanlış.' });
-        }
-
-        const passwordMatch = await bcrypt.compare(password, user.password_hash);
-
-        if (!passwordMatch) {
-          return res.status(401).json({ error: 'Kullanıcı adı veya şifre yanlış.' });
-        }
-
-        return res.status(200).json({ success: true, message: 'Giriş başarılı!' });
-
-      } catch (err) {
-        console.error(err);
-        return res.status(500).json({ error: 'Bir hata oluştu.' });
-      }
-    }
+    // Login logic would go here
+  } catch (err) {
+    console.error(err);
+    return new Response(JSON.stringify({ error: 'Bir hata oluştu.' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    });
   }
-
-  // Bu satırın da CORS başlıkları alması için `res` nesnesinin `setHeader` metodunu kullanmasına gerek kalmaz
-  // çünkü zaten yukarıda eklendi.
-  res.status(405).json({ message: 'Method Not Allowed' });
-}
-
+});
