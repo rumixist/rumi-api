@@ -1,7 +1,7 @@
 {
   "functions": {
     "api/index.js": {
-      "runtime": "now-php@1.0.0"
+      "runtime": "vercel-node@18.x"
     }
   }
 }
